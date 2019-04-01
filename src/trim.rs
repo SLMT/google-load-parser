@@ -2,7 +2,6 @@
 use std::error::Error;
 use std::path::Path;
 use std::fs::{self, File};
-use std::process::Command;
 use std::io::BufReader;
 
 use libflate::gzip;
@@ -60,6 +59,18 @@ fn uncompress_and_trim(gz_file: &Path, out_dir: &Path) -> Result<(), Box<Error>>
     for record in reader.records() {
         let record = record?;
         
+        // check if the average cpu usage is above 0
+        if let Some(v) = record.get(5) {
+            if v == "0" {
+                continue;
+            }
+        } else {
+            return Err(GoogleLoadParseError::new_boxed(
+                format!("there is no value at row {}", record.position().unwrap().line())
+            ));
+        }
+
+        // write each field
         for field in target_fields.iter() {
             if let Some(v) = record.get(*field) {
                 writer.write_field(v)?;
@@ -71,44 +82,6 @@ fn uncompress_and_trim(gz_file: &Path, out_dir: &Path) -> Result<(), Box<Error>>
         }
 
         writer.write_record(None::<&[u8]>)?;
-    }
-    writer.flush()?;
-
-    Ok(())
-}
-
-// Left for benchmarking
-#[allow(dead_code)]
-fn uncompress_with_external(gz_file: &Path, out_dir: &Path) -> Result<(), Box<Error>> {
-    let output_path = gz_file.with_file_name(gz_file.file_stem().unwrap());
-
-    info!("Uncompressing file '{}' to '{}'", gz_file.display(), output_path.display());
-
-    let result = Command::new("gzip").arg("-kd").arg(gz_file).output()?;
-    
-    if result.status.success() {
-        info!("Uncompressing file '{}' successfully", gz_file.display());
-    } else {
-        let message = String::from_utf8(result.stderr)?;
-
-        if message.contains("already exists") {
-            warn!("File '{}' already exists", output_path.display());
-        } else {
-            error!("Uncompressing error: {}", message);
-        }
-    }
-
-    // set output file name
-    let out_file_path = out_dir.join(output_path.file_name().unwrap());
-    info!("Triming file '{}' to '{}'", output_path.display(), out_file_path.display());
-
-    // read the csv file
-    let mut reader = csv::Reader::from_path(output_path)?;
-    let mut writer = csv::Writer::from_path(out_file_path)?;
-    for record in reader.records() {
-        let mut record = record?;
-        record.truncate(6);
-        writer.write_record(record.iter())?;
     }
     writer.flush()?;
 

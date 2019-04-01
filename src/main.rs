@@ -3,9 +3,11 @@ extern crate csv;
 #[macro_use] extern crate log;
 extern crate pretty_env_logger;
 extern crate libflate;
+#[macro_use] extern crate serde;
 
 mod error;
 mod trim;
+mod transfer;
 
 use std::path::Path;
 use clap::{App, Arg};
@@ -30,13 +32,18 @@ fn main() {
                         .required(true)
                         .index(3))
                     .get_matches();
+    
+    let in_dir = matches.value_of("input directory").unwrap();
+    let out_dir = matches.value_of("output directory").unwrap();
 
     match matches.value_of("action").unwrap() {
         "trim" => {
-            let in_dir = matches.value_of("input directory").unwrap();
-            let out_dir = matches.value_of("output directory").unwrap();
-
             if let Err(e) = trim::trim(Path::new(in_dir), Path::new(out_dir)) {
+                error!("{}", e);
+            }
+        },
+        "transfer" => {
+            if let Err(e) = transfer::transfer(Path::new(in_dir), Path::new(out_dir)) {
                 error!("{}", e);
             }
         },
