@@ -101,10 +101,10 @@ FLAGS:
 ARGS:
     <INPUT DIR>      the directory containing input files
     <OUTPUT DIR>     the directory for placing output files
-    <SLOT LENGTH>    the length of time slot (in micro-seconds) [default: 60000000]
+    <SLOT LENGTH>    the length of time slot (in seconds) [default: 60]
 ```
 
-This command processes the trimmed files in the given `[INPUT DIR]` directory into the daily timeline files, where each row represents the changing of CPU usage of a machine in the form of timeline in a day. You can specify the length of a time slot in micro-seconds, which defines the sample rate of the timeline.
+This command processes the trimmed files in the given `[INPUT DIR]` directory into the daily timeline files, where each row represents the changing of CPU usage of a machine in the form of timeline in a day. You can specify the length of a time slot in seconds, which defines the sample rate of the timeline.
 
 Note that the program maps machine ids from its original domain into [1~15000] in order to save the size of the files.
 
