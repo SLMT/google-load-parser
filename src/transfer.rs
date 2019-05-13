@@ -9,8 +9,10 @@ use crate::error::GoogleLoadParseError;
 
 const TIME_MIN: u64 = 600_000_000; // in us
 const TIME_MAX: u64 = 2_506_200_000_000; // in us (29 days later)
-const TIME_SLOT_LEN: u64 = 60_000_000; // a minute
+// const TIME_SLOT_LEN: u64 = 60_000_000; // a minute
+const SECONDS_PER_DAY: u64 = 86400;
 
+// A matrix that saves records at each time point for each machine node
 struct NodeTimeMatrix<T>
         where T: Add<Output=T> + Default + Copy {
     matrix: Vec<Vec<T>>,
@@ -77,7 +79,7 @@ struct Row {
     cpu_usage: f64
 }
 
-pub fn transfer(input_dir: &Path, output_dir: &Path) -> Result<(), Box<Error>> {
+pub fn transfer(input_dir: &Path, output_dir: &Path, slot_length: u64) -> Result<(), Box<Error>> {
     // Check inputs
     if !input_dir.is_dir() {
         return Err(GoogleLoadParseError::new_boxed(format!("'{}' is not a directory.", input_dir.display())));
@@ -86,7 +88,9 @@ pub fn transfer(input_dir: &Path, output_dir: &Path) -> Result<(), Box<Error>> {
         return Err(GoogleLoadParseError::new_boxed(format!("'{}' is not a directory.", output_dir.display())));
     }
 
-    println!("Reading the csv files in {}", input_dir.display());
+    println!("Start transfering the files in '{}' and outputs the results to '{}' with {}-seconds slots.",
+            input_dir.display(), output_dir.display(), slot_length);
+    println!("Reading the csv files in '{}'", input_dir.display());
 
     // Create a mapping table for machine id
     let mut machine_ids: HashMap<u64, usize> = HashMap::new();
@@ -128,8 +132,8 @@ pub fn transfer(input_dir: &Path, output_dir: &Path) -> Result<(), Box<Error>> {
             };
 
             // Add the cpu usage
-            let start = to_time_slot_index(row.start_time);
-            let end = to_time_slot_index(row.end_time);
+            let start = to_time_slot_index(row.start_time, slot_length);
+            let end = to_time_slot_index(row.end_time, slot_length);
             for index in start .. end {
                 statistics.add(new_machine_id, index, row.cpu_usage);
             }
@@ -137,14 +141,15 @@ pub fn transfer(input_dir: &Path, output_dir: &Path) -> Result<(), Box<Error>> {
     }
 
     // Set the path to the output csv file
-    println!("Get statistics spans {} nodes and {} minutes", statistics.node_count(), statistics.time_count());
+    println!("Get statistics spans {} nodes and {} time slots", statistics.node_count(), statistics.time_count());
     println!("Writing the result to '{}'", output_dir.display());
 
     // Write the result
-    let day_limit = statistics.time_count() / 1440 + 1;
+    let slot_per_day = (SECONDS_PER_DAY / slot_length) as usize;
+    let day_limit = statistics.time_count() / slot_per_day + 1;
     for day_id in 0 .. day_limit {
-        let start_time = day_id * 1440;
-        let mut end_time = start_time + 1440; // not included
+        let start_time = day_id * slot_per_day;
+        let mut end_time = start_time + slot_per_day; // not included
 
         if end_time > statistics.time_count() {
             end_time = statistics.time_count();
@@ -183,6 +188,6 @@ pub fn transfer(input_dir: &Path, output_dir: &Path) -> Result<(), Box<Error>> {
     Ok(())
 }
 
-fn to_time_slot_index(timestamp: u64) -> usize {
-    ((timestamp - TIME_MIN) / TIME_SLOT_LEN) as usize
+fn to_time_slot_index(timestamp: u64, slot_len: u64) -> usize {
+    ((timestamp - TIME_MIN) / slot_len / 1_000_000) as usize
 }
