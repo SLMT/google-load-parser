@@ -1,6 +1,6 @@
 # Google Load Parser
 
-This program is designed to parse and transfer the resource usage files downloaded from [Google cluster-usage traces][1] into the timeline sequences of CPU usage for each machine.
+This program is designed to parse and transfer the resource usage files downloaded from [Google cluster-usage traces][1] into the timeline sequences of CPU usage for each machine. Note that we only need the files in `task_usage` directory of the trace.
 
 ## Requirements
 
